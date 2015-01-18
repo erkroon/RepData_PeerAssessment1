@@ -1,25 +1,101 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+# Reproducable research peer assignment 1
 
+This is the report for the peer assignment for reproducable research.
 
-## Loading and preprocessing the data
+Loading and preprocessing the data show any code that is needed to load the data (i.e. read.csv())
+Process/transform the data (if necessary) into a format suitable for your analysis
 
-
+```{r}
+library(ggplot2)
+data <- read.table('./activity.csv', sep = ",", na.strings = "NA", header=TRUE)
+data$date <- as.Date(data$date)
+```
 
 ## What is mean total number of steps taken per day?
 
+For this part of the assignment, you can ignore the missing values in the dataset.
+- Make a histogram of the total number of steps taken each day
+- Calculate and report the mean and median total number of steps taken per day
 
+```{r}
+step_per_day <- aggregate(steps ~ date, data=data, FUN=sum)
+ggplot(step_per_day, aes(steps)) + 
+    geom_histogram(binwidth=1000, colour = "black", fill="orange") +
+    geom_vline(aes(xintercept=mean(steps)),
+               color="red", linetype="dashed", size=1) + 
+    ggtitle("Histogram of the sum of steps taken")
+```
+
+calculate the mean and median
+```{r}
+mean(step_per_day$steps)
+median(step_per_day$steps)
+```
 
 ## What is the average daily activity pattern?
 
+The following part is looking at the average steps per interval (5 minutes) accross all days
+```{r}
+intervals <- aggregate(steps ~ interval, data, mean)
+ggplot(intervals, aes(interval, steps)) + 
+    geom_line() + 
+    ggtitle("average daily activity [5 min interval]")
 
+intervals$interval[which.max(intervals$steps)]
+```
 
 ## Imputing missing values
 
+- Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
 
+```{r}
+sum(is.na(data))
+```
+
+- Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5 minute interval, etc.
+
+replacing NA with mean
+```{r}
+activities <- data
+activities$steps[is.na(data$steps)] <- tapply(data$steps, data$interval, mean, na.rm = TRUE)
+total_step_na_replacement <- tapply(activities$steps, activities$date, sum)
+total_step_original <- tapply(data$steps, data$date, sum)
+```
+
+comparing via summary
+```{r}
+summary(total_step_na_replacement)
+summary(total_step_original)
+```
+
+From the summary we can see that the result are close to eachother. The differences are not that big
+
+```{r}
+hist(total_step_original, col = "orange", breaks=20)
+hist(total_step_na_replacement, col = "blue", breaks = 20)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+
+```{r}
+weekday <- function(date) {
+    if (weekdays(as.Date(date)) %in% c("Saturday", "Sunday")) {
+        "weekend"
+    } else {
+        "weekday"
+    }
+}
+activities$daytype <- as.factor(sapply(activities$date, weekday))
+activities_aggregated <- aggregate(steps ~ interval + daytype, activities, mean)
+```
+
+creating the plots per day type
+```{r}
+ggplot(activities_aggregated, aes(interval, steps)) + 
+    geom_line() + 
+    facet_grid(. ~daytype, scales="free") + 
+    ggtitle("steps differntiated per day type")
+```
+
